@@ -1,9 +1,8 @@
 import os
-from turtle import width
 import requests
 import pandas as pd
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil import parser
 from pytz import timezone
 from requests.auth import HTTPBasicAuth
@@ -14,91 +13,91 @@ load_dotenv()
 
 st.set_page_config(page_title="Work Dashboard", layout="wide")
 
-# CSS for a clean, professional look
-st.markdown("""
-    <style>
-    /* 1. Hide default Streamlit clutter */
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    footer {visibility: hidden;}
-    .block-container { padding-top: 1.5rem; padding-bottom: 0rem; }
 
-    /* 2. Sidebar Width Lock */
-    [data-testid="stSidebar"] {
-        min-width: 200px !important;
-        max-width: 200px !important;
-        width: 200px !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] { left: 200px !important; }
+def load_css(file_name):
+    with open(file_name, encoding="utf-8") as css_file:
+        st.markdown(f"<style>{css_file.read()}</style>", unsafe_allow_html=True)
 
-    /* 3. Ghost Refresh Button Styling */
-    div[data-testid="column"] { align-self: center; }
-    div[data-testid="stButton"] > button {
-        border: none;
-        background-color: transparent;
-        font-size: 22px;
-        padding: 0px;
-        margin-top: 10px;
-    }
-    div[data-testid="stButton"] > button:hover {
-        background-color: transparent;
-        color: #ff4b4b;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
-# --- Logic Layer ---
+load_css("style.css")
+
+
 class JiraExporter:
-    def __init__(self):
-        self.url = f"{os.getenv('JIRA_URL').rstrip('/')}/rest/api/3/search/jql"
-        self.base_url = os.getenv('JIRA_URL').rstrip('/')
-        self.email = os.getenv('JIRA_EMAIL')
-        self.token = os.getenv('JIRA_API_TOKEN')
+    def __init__(self, jira_url, email, token):
+        self.url = f"{jira_url.rstrip('/')}/rest/api/3/search/jql"
+        self.base_url = jira_url.rstrip("/")
+        self.email = email
+        self.token = token
         self.auth = HTTPBasicAuth(self.email, self.token)
-    
+
     def format_to_est(self, date_str):
-        if not date_str: return "N/A"
+        if not date_str:
+            return "N/A"
         try:
             utc_dt = parser.parse(date_str)
-            est_dt = utc_dt.astimezone(timezone('US/Eastern'))
-            return est_dt.strftime('%Y-%m-%d %I:%M %p')
-        except:
+            est_dt = utc_dt.astimezone(timezone("US/Eastern"))
+            return est_dt.strftime("%Y-%m-%d %I:%M %p")
+        except Exception:
             return "N/A"
 
-    @st.cache_data(ttl=600) # Cache for 10 minutes to save API calls
+    @st.cache_data(ttl=600)
     def fetch_and_process(_self, jql_query):
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        payload = {
-            "jql": jql_query,
-            "maxResults": 50,
-            "fields": ["summary", "status", "assignee", "reporter", "created", "updated"]
-        }
-        
+        fields = ["summary", "status", "assignee", "reporter", "created", "updated"]
+        max_results = 100
+
         try:
-            response = requests.post(_self.url, json=payload, headers=headers, auth=_self.auth)
-            response.raise_for_status()
-            issues = response.json().get("issues", [])
-            
+            issues = []
+            next_page_token = None
+
+            while True:
+                payload = {
+                    "jql": jql_query,
+                    "maxResults": max_results,
+                    "fields": fields,
+                }
+                if next_page_token:
+                    payload["nextPageToken"] = next_page_token
+
+                response = requests.post(_self.url, json=payload, headers=headers, auth=_self.auth)
+                response.raise_for_status()
+                response_data = response.json()
+                batch = response_data.get("issues", [])
+                issues.extend(batch)
+
+                if response_data.get("isLast", True):
+                    break
+
+                next_page_token = response_data.get("nextPageToken")
+                if not next_page_token:
+                    break
+
             data = []
             for issue in issues:
-                f = issue.get("fields", {})
+                fields_data = issue.get("fields", {})
                 key = issue.get("key")
-                # Create the direct link to the ticket
                 ticket_url = f"{_self.base_url}/browse/{key}"
-                data.append({
-                    "Key": ticket_url,  # Store the URL here
-                    "Key Label": key,   # Keep the label for display    
-                    "Summary": f.get("summary"),
-                    "Assignee": (f.get("assignee") or {}).get("displayName", "Unassigned"),
-                    "Reporter": (f.get("reporter") or {}).get("displayName", "Unknown"),
-                    "Status": (f.get("status") or {}).get("name"),
-                    "Created (EST)": _self.format_to_est(f.get("created")),
-                    "Updated (EST)": _self.format_to_est(f.get("updated"))
-                })
+                data.append(
+                    {
+                        "Key": ticket_url,
+                        "Key Label": key,
+                        "Summary": fields_data.get("summary"),
+                        "Assignee": (fields_data.get("assignee") or {}).get("displayName", "Unassigned"),
+                        "Reporter": (fields_data.get("reporter") or {}).get("displayName", "Unknown"),
+                        "Status": (fields_data.get("status") or {}).get("name"),
+                        "Created (EST)": _self.format_to_est(fields_data.get("created")),
+                        "Updated (EST)": _self.format_to_est(fields_data.get("updated")),
+                    }
+                )
             return pd.DataFrame(data)
+        except requests.HTTPError as e:
+            error_details = e.response.text if e.response is not None else str(e)
+            st.error(f"Jira API Error: {error_details}")
+            return pd.DataFrame()
         except Exception as e:
             st.error(f"Jira API Error: {e}")
             return pd.DataFrame()
+
 
 def style_status(val):
     color_map = {
@@ -106,90 +105,231 @@ def style_status(val):
         "Waiting for approval": "background-color: #f8d7da; color: #721c24;",
         "Awaiting User": "background-color: #f8d7da; color: #721c24;",
         "Open": "background-color: #fff3cd; color: #856404;",
-        "Assigned": "background-color: #fff3cd; color: #856404;"
+        "Assigned": "background-color: #fff3cd; color: #856404;",
+        "Closed": "background-color: #f4f4f4; color: #383d41;",
+        "Resolved": "background-color: #f4f4f4; color: #383d41;",
     }
     return color_map.get(val, "")
+
 
 def style_stale_issues(val):
     if not val or val == "N/A":
         return ""
     try:
-        # Parse the formatted string back to a datetime object
-        updated_dt = datetime.strptime(val, '%Y-%m-%d %I:%M %p')
-        # Make it timezone aware for EST
-        est_tz = timezone('US/Eastern')
+        updated_dt = datetime.strptime(val, "%Y-%m-%d %I:%M %p")
+        est_tz = timezone("US/Eastern")
         updated_dt = est_tz.localize(updated_dt)
-        
-        # Check if difference is > 48 hours
         now = datetime.now(est_tz)
-        if (now - updated_dt).total_seconds() > 172800:  # 48 hours in seconds
-            return "color: #000; font-weight: bold;" # Red and Bold
+        if (now - updated_dt).total_seconds() > 172800:
+            return "color: #000; font-weight: bold;"
     except Exception:
         pass
     return ""
-# --- Main App ---
-st.markdown("## Jira Tickets")
-exporter = JiraExporter()
 
-# # Top Header Area
-# head_col1, head_col2 = st.columns([0.2, 0.8])
-# with head_col1:
-#     st.markdown("## Jira Tickets")
-# with head_col2:
-#     if st.button("🔄", help="Force Refresh Data"):
-#         st.cache_data.clear()
-#         st.rerun()
 
-# JQL Configuration
-QUERIES = {
-    "Reported": "reporter = currentUser() AND resolution = Unresolved AND assignee != currentUser() ORDER BY created DESC",
-    "Assigned": "assignee = currentUser() AND resolution = Unresolved ORDER BY created DESC"
+def dataframe_height_for_rows(row_count):
+    header_height = 38
+    row_height = 27
+    padding = 6
+    max_height = 760
+    content_height = header_height + (max(row_count, 1) * row_height) + padding
+    return min(content_height, max_height)
+
+
+STATUS_SORT_ORDER = {
+    "Open": 1,
+    "Assigned": 2,
+    "In Progress": 3,
+    "Waiting for approval": 4,
+    "Awaiting User": 5,
+    "Resolved": 98,
+    "Closed": 99,
 }
 
-tab1, tab2 = st.tabs(["📤 Reported by Me", "📥 Assigned to Me"])
 
-with tab1:
-    df_rep = exporter.fetch_and_process(QUERIES["Reported"])
-    if not df_rep.empty:
-        # Sort and filter
-        df_display = df_rep.drop(columns=['Reporter']).sort_values("Status")
-        styled_df = (df_display.style
-                     .map(style_status, subset=["Status"])
-                     .map(style_stale_issues, subset=["Updated (EST)"]))
-        st.dataframe(styled_df, width="stretch", hide_index=True,
-                    column_config={
-                        "Key": st.column_config.LinkColumn(
-                            "Key",
-                            help="Click to open ticket in Jira",
-                            validate="^https://.*",
-                            display_text=r"([^/]+)$" # This regex extracts the Key from the end of the URL
-                        ),
-                    } 
-                   )
+def parse_display_datetime(value):
+    if not value or value == "N/A":
+        return datetime.max
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %I:%M %p")
+    except Exception:
+        return datetime.max
+
+
+def sort_ticket_dataframe(df):
+    df_sorted = df.copy()
+    df_sorted["Status Sort"] = df_sorted["Status"].map(STATUS_SORT_ORDER).fillna(50)
+    df_sorted["Created Sort"] = df_sorted["Created (EST)"].apply(parse_display_datetime)
+    df_sorted = df_sorted.sort_values(["Status Sort", "Created Sort"], ascending=[True, True])
+    return df_sorted.drop(columns=["Status Sort", "Created Sort"])
+
+
+def build_jql(view_name, created_start=None, created_end=None):
+    if view_name == "Reported":
+        owner_clause = "reporter = currentUser() AND (assignee != currentUser() OR assignee IS EMPTY)"
     else:
-        st.info("No reported issues found.")
+        owner_clause = "assignee = currentUser()"
 
-with tab2:
-    df_asn = exporter.fetch_and_process(QUERIES["Assigned"])
-    if not df_asn.empty:
-        df_display = df_asn.drop(columns=['Assignee']).sort_values("Status")
-        styled_df = (df_display.style
-                     .map(style_status, subset=["Status"])
-                     .map(style_stale_issues, subset=["Updated (EST)"]))
-        st.dataframe(styled_df, width="stretch", hide_index=True,
-                     column_config={
-                            "Key": st.column_config.LinkColumn(
-                                "Key",
-                                help="Click to open ticket in Jira",
-                                validate="^https://.*",
-                                display_text=r"([^/]+)$" # This regex extracts the Key from the end of the URL
-                            ),
-                        }
-                    )
+    if created_start and created_end:
+        filters = [
+            owner_clause,
+            f'created >= "{created_start.strftime("%Y-%m-%d")}"',
+            f'created <= "{created_end.strftime("%Y-%m-%d")}"',
+        ]
     else:
-        st.info("No assigned issues found.")
+        filters = [owner_clause, "(resolution = Unresolved OR resolved >= -14d)"]
 
-# Sidebar
+    return " AND ".join(filters) + " ORDER BY created DESC"
+
+
+def initialize_settings():
+    st.session_state.setdefault("jira_url", os.getenv("JIRA_URL", "").strip())
+    st.session_state.setdefault("jira_email", os.getenv("JIRA_EMAIL", "").strip())
+    st.session_state.setdefault("jira_api_token", os.getenv("JIRA_API_TOKEN", "").strip())
+
+
+def current_jira_settings():
+    return {
+        "jira_url": st.session_state.get("jira_url", "").strip(),
+        "email": st.session_state.get("jira_email", "").strip(),
+        "token": st.session_state.get("jira_api_token", "").strip(),
+    }
+
+
+def render_admin_center():
+    st.markdown("## Admin")
+    with st.expander("Manage Jira connection settings for the current browser session.", expanded=False):
+        with st.form("admin_center_form"):
+            jira_url = st.text_input("Jira URL", value=st.session_state.get("jira_url", ""))
+            jira_email = st.text_input("Email", value=st.session_state.get("jira_email", ""))
+            jira_api_token = st.text_input(
+                "API Token",
+                value=st.session_state.get("jira_api_token", ""),
+                type="password",
+            )
+            apply_settings = st.form_submit_button("Apply Credentials")
+
+    if apply_settings:
+        st.session_state["jira_url"] = jira_url.strip()
+        st.session_state["jira_email"] = jira_email.strip()
+        st.session_state["jira_api_token"] = jira_api_token.strip()
+        st.cache_data.clear()
+        st.success("Jira credentials updated for this session.")
+        st.rerun()
+
+def render_dataframe(df, hidden_column, search_text=""):
+    if df.empty:
+        return False
+
+    df_display = sort_ticket_dataframe(df.drop(columns=[hidden_column]))
+    if search_text.strip():
+        search_blob = df_display.astype(str).agg(" ".join, axis=1)
+        df_display = df_display[search_blob.str.contains(search_text, case=False, na=False)]
+
+    if df_display.empty:
+        return False
+    styled_df = (
+        df_display.style.map(style_status, subset=["Status"]).map(
+            style_stale_issues, subset=["Updated (EST)"]
+        )
+    )
+    st.dataframe(
+        styled_df,
+        width="stretch",
+        hide_index=True,
+        height=dataframe_height_for_rows(len(df_display)),
+        column_config={
+            "Key": st.column_config.LinkColumn(
+                "Key",
+                help="Click to open ticket in Jira",
+                validate="^https://.*",
+                display_text=r"([^/]+)$",
+            ),
+        },
+    )
+    return True
+
+
+def render_jira_tickets():
+    settings = current_jira_settings()
+
+    if not all(settings.values()):
+        st.warning("Set Jira URL, email, and API token in Admin before loading tickets.")
+        return
+
+    exporter = JiraExporter(settings["jira_url"], settings["email"], settings["token"])
+
+    header_left, header_mid, header_right = st.columns([0.22, 0.28, 0.50])
+
+    with header_left:
+        st.markdown("## Jira")
+
+    with header_mid:
+        search_text = st.text_input(
+            "Search tickets",
+            placeholder="Search all table fields",
+            label_visibility="collapsed",
+        )
+
+    with header_right:
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([0.24, 0.38, 0.30, 0.10])
+
+        with filter_col1:
+            use_created_date_filter = st.checkbox("Created Date", value=False)
+
+        with filter_col2:
+            default_end_date = datetime.now().date()
+            default_start_date = default_end_date - timedelta(days=13)
+            selected_dates = st.date_input(
+                "Created date range",
+                value=(default_start_date, default_end_date),
+                disabled=not use_created_date_filter,
+                label_visibility="collapsed",
+            )
+
+        with filter_col3:
+            st.markdown(
+                f'<div class="header-refresh-text">Last Refresh: {datetime.now(timezone("US/Eastern")).strftime("%I:%M %p EST")}</div>',
+                unsafe_allow_html=True,
+            )
+
+        with filter_col4:
+            if st.button("🔄", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+
+    created_start = None
+    created_end = None
+    if use_created_date_filter:
+        if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+            created_start, created_end = selected_dates
+        elif isinstance(selected_dates, list) and len(selected_dates) == 2:
+            created_start, created_end = selected_dates
+
+        if created_start and created_end and created_start > created_end:
+            created_start, created_end = created_end, created_start
+
+    reported_query = build_jql("Reported", created_start, created_end)
+    assigned_query = build_jql("Assigned", created_start, created_end)
+
+    tab1, tab2 = st.tabs(["📤 Reported by Me", "📥 Assigned to Me"])
+
+    with tab1:
+        if not render_dataframe(exporter.fetch_and_process(reported_query), "Reporter", search_text):
+            st.info("No reported issues found for the current filters.")
+
+    with tab2:
+        if not render_dataframe(exporter.fetch_and_process(assigned_query), "Assignee", search_text):
+            st.info("No assigned issues found for the current filters.")
+
+
+initialize_settings()
+
 with st.sidebar:
-    st.subheader("Work Dashboard")
-    st.caption(f"Last Refresh: {datetime.now(timezone('US/Eastern')).strftime('%I:%M %p EST')}")
+    st.subheader("Applications")
+    page = st.radio("Navigation", ["Jira", "Admin"], label_visibility="collapsed")
+
+if page == "Admin":
+    render_admin_center()
+else:
+    render_jira_tickets()

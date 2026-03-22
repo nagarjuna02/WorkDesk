@@ -14,7 +14,7 @@ class JiraExporter:
         self.email = os.getenv('JIRA_EMAIL')
         self.token = os.getenv('JIRA_API_TOKEN')
         self.auth = HTTPBasicAuth(self.email, self.token)
-        self.base_path = r"C:\Nag\Jira Tickets\files\jira_tickets"
+        self.base_path = r"C:\Users\nagarjuna.bandi\OneDrive - STG Logistics, Inc\Python Projects\Work Desk\files\jira_tickets"
         
         # Ensure directory exists
         os.makedirs(self.base_path, exist_ok=True)
@@ -96,7 +96,10 @@ if __name__ == "__main__":
 
     queries = {
         "reported_by_me": (
-            "project = ITSM ORDER BY created DESC"
+            "reporter = currentUser() "
+            "AND resolution = Unresolved "
+            "AND assignee != currentUser()"
+            "ORDER BY created DESC"
  
         ),
         "assigned_to_me": (
