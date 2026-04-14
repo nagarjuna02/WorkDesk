@@ -129,9 +129,12 @@ class JiraExporter:
 def style_status(val):
     color_map = {
         "In Progress": "background-color: #d4edda; color: #155724;",
+        "Code Fix in Progress": "background-color: #d4edda; color: #155724;",
         "Waiting for approval": "background-color: #f8d7da; color: #721c24;",
         "Awaiting User": "background-color: #f8d7da; color: #721c24;",
         "On Hold": "background-color: #f8d7da; color: #721c24;",
+        "Form Approval": "background-color: #f8d7da; color: #721c24;",
+        "ON HOLD / DEPENDANCY": "background-color: #f8d7da; color: #721c24;",
         "Open": "background-color: #fff3cd; color: #856404;",
         "Assigned": "background-color: #fff3cd; color: #856404;",
         "Closed": "background-color: #f4f4f4; color: #383d41;",
