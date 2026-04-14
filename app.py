@@ -22,6 +22,8 @@ def load_css(file_name):
 
 load_css("style.css")
 
+TEAM_QUEUE_FIELD_ID = "customfield_11152"
+
 
 class JiraExporter:
     def __init__(self, jira_url, email, token):
@@ -64,10 +66,23 @@ class JiraExporter:
 
         raise last_error
 
+    def format_custom_field_value(self, value):
+        if value in (None, ""):
+            return ""
+        if isinstance(value, dict):
+            for key in ("value", "name", "displayName"):
+                if value.get(key):
+                    return str(value[key])
+            return str(value)
+        if isinstance(value, list):
+            formatted_values = [self.format_custom_field_value(item) for item in value]
+            return ", ".join([item for item in formatted_values if item])
+        return str(value)
+
     @st.cache_data(ttl=600)
     def fetch_and_process(_self, jql_query):
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        fields = ["summary", "status", "assignee", "reporter", "created", "updated"]
+        fields = ["summary", "status", "assignee", "reporter", "created", "updated", TEAM_QUEUE_FIELD_ID]
         max_results = 100
 
         try:
@@ -104,7 +119,9 @@ class JiraExporter:
                 data.append(
                     {
                         "Key": ticket_url,
-                        "Key Label": key,
+                        "Team Queue": _self.format_custom_field_value(
+                            fields_data.get(TEAM_QUEUE_FIELD_ID)
+                        ),
                         "Summary": fields_data.get("summary"),
                         "Assignee": (fields_data.get("assignee") or {}).get("displayName", "Unassigned"),
                         "Reporter": (fields_data.get("reporter") or {}).get("displayName", "Unknown"),
@@ -292,7 +309,7 @@ def render_dataframe(df, hidden_column, search_text=""):
                 validate="^https://.*",
                 display_text=r"([^/]+)$"
             ),
-            "Key Label": st.column_config.TextColumn("Key Label"),
+            "Team Queue": st.column_config.TextColumn("Queue", width="small"),
             "Summary": st.column_config.TextColumn("Summary", width="large"),
             "Assignee": st.column_config.TextColumn("Assignee"),
             "Reporter": st.column_config.TextColumn("Reporter"),
