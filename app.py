@@ -142,7 +142,19 @@ def style_status(val):
     }
     return color_map.get(val, "")
 
-
+STATUS_SORT_ORDER = {
+    "Open": 1,
+    "Assigned": 2,
+    "In Progress": 3,
+    "Code Fix in Progress" : 4,
+    "Waiting for approval": 5,
+    "Awaiting User": 6,
+    "Form Approval": 7,
+    "On Hold": 8,
+    "ON HOLD / DEPENDANCY": 9,
+    "Resolved": 98,
+    "Closed": 99,
+}
 def style_stale_issues(val):
     if not val or val == "N/A":
         return ""
@@ -167,15 +179,7 @@ def dataframe_height_for_rows(row_count):
     return min(content_height, max_height)
 
 
-STATUS_SORT_ORDER = {
-    "Open": 1,
-    "Assigned": 2,
-    "In Progress": 3,
-    "Waiting for approval": 4,
-    "Awaiting User": 5,
-    "Resolved": 98,
-    "Closed": 99,
-}
+
 
 
 def parse_display_datetime(value):
