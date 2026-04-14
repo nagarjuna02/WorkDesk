@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import pandas as pd
 import streamlit as st
@@ -11,7 +12,7 @@ from dotenv import load_dotenv
 # --- Configuration & Styling ---
 load_dotenv()
 
-st.set_page_config(page_title="Work Dashboard", layout="wide")
+st.set_page_config(page_title="Work Desk", layout="wide")
 
 
 def load_css(file_name):
@@ -40,6 +41,29 @@ class JiraExporter:
         except Exception:
             return "N/A"
 
+    def post_with_retry(self, payload, headers, max_attempts=3):
+        last_error = None
+        request_headers = {**headers, "Connection": "close"}
+
+        for attempt in range(max_attempts):
+            try:
+                response = requests.post(
+                    self.url,
+                    json=payload,
+                    headers=request_headers,
+                    auth=self.auth,
+                    timeout=(10, 60),
+                )
+                response.raise_for_status()
+                return response
+            except (requests.ConnectionError, requests.Timeout) as error:
+                last_error = error
+                if attempt == max_attempts - 1:
+                    raise
+                time.sleep(1.5 * (attempt + 1))
+
+        raise last_error
+
     @st.cache_data(ttl=600)
     def fetch_and_process(_self, jql_query):
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -59,7 +83,7 @@ class JiraExporter:
                 if next_page_token:
                     payload["nextPageToken"] = next_page_token
 
-                response = requests.post(_self.url, json=payload, headers=headers, auth=_self.auth)
+                response = _self.post_with_retry(payload, headers)
                 response.raise_for_status()
                 response_data = response.json()
                 batch = response_data.get("issues", [])
@@ -94,6 +118,9 @@ class JiraExporter:
             error_details = e.response.text if e.response is not None else str(e)
             st.error(f"Jira API Error: {error_details}")
             return pd.DataFrame()
+        except (requests.ConnectionError, requests.Timeout) as e:
+            st.error(f"Jira API Error: connection to Jira failed after retries: {e}")
+            return pd.DataFrame()
         except Exception as e:
             st.error(f"Jira API Error: {e}")
             return pd.DataFrame()
@@ -104,6 +131,7 @@ def style_status(val):
         "In Progress": "background-color: #d4edda; color: #155724;",
         "Waiting for approval": "background-color: #f8d7da; color: #721c24;",
         "Awaiting User": "background-color: #f8d7da; color: #721c24;",
+        "On Hold": "background-color: #f8d7da; color: #721c24;",
         "Open": "background-color: #fff3cd; color: #856404;",
         "Assigned": "background-color: #fff3cd; color: #856404;",
         "Closed": "background-color: #f4f4f4; color: #383d41;",
@@ -164,11 +192,13 @@ def sort_ticket_dataframe(df):
     return df_sorted.drop(columns=["Status Sort", "Created Sort"])
 
 
-def build_jql(view_name, created_start=None, created_end=None):
+def build_jql(view_name, filter_email, created_start=None, created_end=None):
+    jira_user = filter_email.replace('"', '\\"')
+
     if view_name == "Reported":
-        owner_clause = "reporter = currentUser() AND (assignee != currentUser() OR assignee IS EMPTY)"
+        owner_clause = f'reporter = "{jira_user}" AND (assignee != "{jira_user}" OR assignee IS EMPTY)'
     else:
-        owner_clause = "assignee = currentUser()"
+        owner_clause = f'assignee = "{jira_user}"'
 
     if created_start and created_end:
         filters = [
@@ -182,39 +212,50 @@ def build_jql(view_name, created_start=None, created_end=None):
     return " AND ".join(filters) + " ORDER BY created DESC"
 
 
+def get_query_param_value(param_name):
+    value = st.query_params.get(param_name, "")
+    if isinstance(value, list):
+        return value[0].strip() if value else ""
+    return str(value).strip()
+
+
 def initialize_settings():
-    st.session_state.setdefault("jira_url", os.getenv("JIRA_URL", "").strip())
-    st.session_state.setdefault("jira_email", os.getenv("JIRA_EMAIL", "").strip())
-    st.session_state.setdefault("jira_api_token", os.getenv("JIRA_API_TOKEN", "").strip())
+    default_filter_email = get_query_param_value("user-email") or os.getenv("JIRA_EMAIL", "").strip()
+    st.session_state.setdefault("jira_filter_email", default_filter_email)
+
+    query_filter_email = get_query_param_value("user-email")
+    if query_filter_email and st.session_state.get("jira_filter_email") != query_filter_email:
+        st.session_state["jira_filter_email"] = query_filter_email
 
 
 def current_jira_settings():
     return {
-        "jira_url": st.session_state.get("jira_url", "").strip(),
-        "email": st.session_state.get("jira_email", "").strip(),
-        "token": st.session_state.get("jira_api_token", "").strip(),
+        "jira_url": os.getenv("JIRA_URL", "").strip(),
+        "email": os.getenv("JIRA_EMAIL", "").strip(),
+        "token": os.getenv("JIRA_API_TOKEN", "").strip(),
+        "filter_email": st.session_state.get("jira_filter_email", "").strip(),
     }
 
 
 def render_admin_center():
     st.markdown("## Admin")
-    with st.expander("Manage Jira connection settings for the current browser session.", expanded=False):
+    with st.expander("Manage Jira ticket filtering for the current browser session.", expanded=False):
         with st.form("admin_center_form"):
-            jira_url = st.text_input("Jira URL", value=st.session_state.get("jira_url", ""))
-            jira_email = st.text_input("Email", value=st.session_state.get("jira_email", ""))
-            jira_api_token = st.text_input(
-                "API Token",
-                value=st.session_state.get("jira_api_token", ""),
-                type="password",
+            jira_filter_email = st.text_input(
+                "Jira User Email",
+                value=st.session_state.get("jira_filter_email", ""),
+                help="This email is used only in the JQL filter. Jira API authentication still uses the .env credentials.",
             )
-            apply_settings = st.form_submit_button("Apply Credentials")
+            apply_settings = st.form_submit_button("Apply Email Filter")
 
     if apply_settings:
-        st.session_state["jira_url"] = jira_url.strip()
-        st.session_state["jira_email"] = jira_email.strip()
-        st.session_state["jira_api_token"] = jira_api_token.strip()
+        st.session_state["jira_filter_email"] = jira_filter_email.strip()
+        if jira_filter_email.strip():
+            st.query_params["user-email"] = jira_filter_email.strip()
+        elif "user-email" in st.query_params:
+            del st.query_params["user-email"]
         st.cache_data.clear()
-        st.success("Jira credentials updated for this session.")
+        st.success("Jira email filter updated for this session.")
         st.rerun()
 
 def render_dataframe(df, hidden_column, search_text=""):
@@ -243,8 +284,15 @@ def render_dataframe(df, hidden_column, search_text=""):
                 "Key",
                 help="Click to open ticket in Jira",
                 validate="^https://.*",
-                display_text=r"([^/]+)$",
+                display_text=r"([^/]+)$"
             ),
+            "Key Label": st.column_config.TextColumn("Key Label"),
+            "Summary": st.column_config.TextColumn("Summary", width="large"),
+            "Assignee": st.column_config.TextColumn("Assignee"),
+            "Reporter": st.column_config.TextColumn("Reporter"),
+            "Status": st.column_config.TextColumn("Status"),
+            "Created (EST)": st.column_config.TextColumn("Created (EST)"),
+            "Updated (EST)": st.column_config.TextColumn("Updated (EST)"),
         },
     )
     return True
@@ -253,8 +301,12 @@ def render_dataframe(df, hidden_column, search_text=""):
 def render_jira_tickets():
     settings = current_jira_settings()
 
-    if not all(settings.values()):
-        st.warning("Set Jira URL, email, and API token in Admin before loading tickets.")
+    if not settings["filter_email"]:
+        st.warning("Set a Jira user email in Admin before loading tickets.")
+        return
+
+    if not all([settings["jira_url"], settings["email"], settings["token"]]):
+        st.warning("Set Jira URL, email, and API token in the .env file before loading tickets.")
         return
 
     exporter = JiraExporter(settings["jira_url"], settings["email"], settings["token"])
@@ -309,8 +361,8 @@ def render_jira_tickets():
         if created_start and created_end and created_start > created_end:
             created_start, created_end = created_end, created_start
 
-    reported_query = build_jql("Reported", created_start, created_end)
-    assigned_query = build_jql("Assigned", created_start, created_end)
+    reported_query = build_jql("Reported", settings["filter_email"], created_start, created_end)
+    assigned_query = build_jql("Assigned", settings["filter_email"], created_start, created_end)
 
     tab1, tab2 = st.tabs(["📤 Reported by Me", "📥 Assigned to Me"])
 
