@@ -172,10 +172,9 @@ def style_stale_issues(val):
 
 def dataframe_height_for_rows(row_count):
     header_height = 38
-    row_height = 27
-    padding = 6
-    max_height = 760
-    content_height = header_height + (max(row_count, 1) * row_height) + padding
+    row_height = 35 
+    content_height = header_height + (max(row_count, 1) * row_height) 
+    max_height = content_height
     return min(content_height, max_height)
 
 
