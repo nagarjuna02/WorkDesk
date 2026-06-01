@@ -281,42 +281,42 @@ div[data-testid="stFormSubmitButton"] button:active {
     transform: scale(0.98) !important;
 }
 
-/* Connection Status Card */
-.status-card {
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+/* --- Expander Component Styling --- */
+div[data-testid="stExpander"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    overflow: hidden !important;
 }
 
-.status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #f1f5f9;
+div[data-testid="stExpander"] details {
+    border: none !important;
+    background: transparent !important;
 }
 
-.status-row:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+div[data-testid="stExpander"] summary {
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    color: #0f172a !important;
+    padding: 12px 16px !important;
+    background-color: #f8fafc !important; /* light gray header background */
+    border-bottom: none !important;
+    transition: background-color 0.2s ease !important;
 }
 
-.status-row:first-child {
-    padding-top: 0;
+div[data-testid="stExpander"] summary:hover {
+    background-color: #f1f5f9 !important;
 }
 
-.status-label {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #64748b;
+div[data-testid="stExpander"] details[open] summary {
+    border-bottom: 1px solid #e2e8f0 !important;
 }
 
-.status-value {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #0f172a;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+/* Remove default inner border of the form inside details to prevent double cards */
+div[data-testid="stExpander"] div[data-testid="stForm"] {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 16px 16px 0 16px !important;
 }
 
