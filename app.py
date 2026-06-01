@@ -445,7 +445,6 @@ def render_jira_tickets():
 initialize_settings()
 
 with st.sidebar:
-    st.markdown('<div class="sidebar-header">Applications</div>', unsafe_allow_html=True)
     page = st.radio("Navigation", ["Jira", "Admin"], label_visibility="collapsed")
 
 if page == "Admin":
