@@ -14,7 +14,8 @@ footer { visibility: hidden; }
 }
 
 [data-testid="stSidebarCollapsedControl"] {
-    left: 200px !important;
+    visibility: visible !important;
+    left: 10px !important;
 }
 
 [data-testid="stHorizontalBlock"] > [data-testid="column"] {
@@ -32,9 +33,100 @@ div[data-testid="stCheckbox"] label p {
     font-size: 1rem !important;
 }
 
-div[role="radiogroup"] > label {
-    margin-bottom: 0.45rem;
+/* Sidebar Header Typography */
+.sidebar-header {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #94a3b8 !important;
+    letter-spacing: 0.08em !important;
+    margin-bottom: 12px !important;
+    margin-top: 4px !important;
+    padding-left: 8px !important;
 }
+
+/* Sidebar Custom Background & Divider */
+[data-testid="stSidebar"] {
+    background-color: #f8fafc !important; /* Premium ultra-light slate background */
+    border-right: 1px solid #e2e8f0 !important;
+}
+
+/* Convert default radio circles to clean dashboard menu items */
+div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+}
+
+div[role="radiogroup"] label {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    background-color: transparent !important;
+    border: none !important;
+    margin-bottom: 0 !important;
+}
+
+/* Hide default radio circle elements */
+div[role="radiogroup"] label > div:first-child {
+    display: none !important;
+}
+
+/* Inactive radio labels style */
+div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+    color: #64748b !important; /* Muted gray text */
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
+    margin: 0 !important;
+}
+
+/* Active/selected radio item style */
+div[role="radiogroup"] label:has(input[type="radio"]:checked) {
+    background-color: #f1f5f9 !important; /* Subtle gray background fill */
+}
+
+div[role="radiogroup"] label:has(input[type="radio"]:checked) div[data-testid="stMarkdownContainer"] p {
+    color: #ff4b4b !important; /* Active brand text color */
+    font-weight: 600 !important;
+}
+
+/* Prepend sleek line-art SVG icons to sidebar items */
+div[role="radiogroup"] label::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    background-repeat: no-repeat;
+    background-size: contain;
+    vertical-align: middle;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+div[role="radiogroup"] label:has(input[type="radio"]:checked)::before {
+    opacity: 1;
+}
+
+/* 1. Jira Navigation Item Icon (Outline Layout Grid) */
+div[role="radiogroup"] label:nth-of-type(1)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E");
+}
+div[role="radiogroup"] label:nth-of-type(1):has(input[type="radio"]:checked)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E");
+}
+
+/* 2. Admin Navigation Item Icon (Outline Gear) */
+div[role="radiogroup"] label:nth-of-type(2)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+div[role="radiogroup"] label:nth-of-type(2):has(input[type="radio"]:checked)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+}
+
 
 div[data-testid="stDateInput"] {
     margin-top: 0;
