@@ -228,3 +228,95 @@ div[data-testid="stTabs"] button[role="tab"]:nth-child(3)[aria-selected="true"]:
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
 }
 
+/* --- Admin Center Styling --- */
+
+/* Style Streamlit Forms to look like clean cards */
+div[data-testid="stForm"] {
+    background-color: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 24px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Style Inputs inside forms */
+div[data-testid="stForm"] input[type="text"] {
+    border-radius: 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 10px 14px !important;
+    font-size: 0.9rem !important;
+}
+
+div[data-testid="stForm"] input[type="text"]:focus {
+    border-color: #ff4b4b !important;
+    box-shadow: 0 0 0 2px rgba(255, 75, 75, 0.2) !important;
+}
+
+/* Form Submit Button Layout */
+div[data-testid="stFormSubmitButton"] {
+    text-align: right !important;
+    margin-top: 16px !important;
+}
+
+div[data-testid="stFormSubmitButton"] button {
+    background-color: #ff4b4b !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    padding: 8px 16px !important;
+    transition: background-color 0.2s ease, transform 0.1s ease !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    cursor: pointer !important;
+}
+
+div[data-testid="stFormSubmitButton"] button:hover {
+    background-color: #e03e3e !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+div[data-testid="stFormSubmitButton"] button:active {
+    transform: scale(0.98) !important;
+}
+
+/* Connection Status Card */
+.status-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.status-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.status-row:first-child {
+    padding-top: 0;
+}
+
+.status-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.status-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+

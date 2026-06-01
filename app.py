@@ -284,15 +284,53 @@ def current_jira_settings():
 
 
 def render_admin_center():
-    st.markdown("## Admin")
-    with st.expander("Manage Jira ticket filtering for the current browser session.", expanded=False):
+    st.markdown("## Admin Center")
+    st.markdown("Configure and manage your browser session settings and review connection parameters.")
+    st.markdown("---")
+
+    col1, col2 = st.columns([0.55, 0.45])
+
+    with col1:
+        st.markdown("### Session Configuration")
         with st.form("admin_center_form"):
             jira_filter_email = st.text_input(
                 "Jira User Email",
                 value=st.session_state.get("jira_filter_email", ""),
-                help="This email is used only in the JQL filter. Jira API authentication still uses the .env credentials.",
+                help="This email is used to filter issues. API authentication itself still uses the .env credentials.",
             )
             apply_settings = st.form_submit_button("Apply Email Filter")
+
+    with col2:
+        st.markdown("### Connection Status")
+        settings = current_jira_settings()
+        
+        url_status = "✅ Configured" if settings["jira_url"] else "❌ Missing"
+        auth_status = "✅ Active" if settings["email"] and settings["token"] else "❌ Inactive"
+        session_status = "✅ Active" if settings["filter_email"] else "⚠️ Unset"
+
+        st.markdown(
+            f"""
+            <div class="status-card">
+                <div class="status-row">
+                    <span class="status-label">Jira URL</span>
+                    <span class="status-value">{settings['jira_url'] or 'Not Set'}</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Environment Auth</span>
+                    <span class="status-value">{auth_status}</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Session User</span>
+                    <span class="status-value">{settings['filter_email'] or 'Not Set'}</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Session Status</span>
+                    <span class="status-value">{session_status}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     if apply_settings:
         st.session_state["jira_filter_email"] = jira_filter_email.strip()
