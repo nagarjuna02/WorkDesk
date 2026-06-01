@@ -23,6 +23,8 @@ def load_css(file_name):
 load_css("style.css")
 
 TEAM_QUEUE_FIELD_ID = "customfield_11152"
+TEAM_QUEUE_JQL_FIELD = "cf[11152]"
+REPORTING_QUEUE_NAME = "Reporting"
 
 
 class JiraExporter:
@@ -172,6 +174,10 @@ STATUS_SORT_ORDER = {
     "Resolved": 98,
     "Closed": 99,
 }
+
+INACTIVE_COUNT_STATUSES = {"canceled", "cancelled", "closed", "resolved"}
+
+
 def style_stale_issues(val):
     if not val or val == "N/A":
         return ""
@@ -191,7 +197,7 @@ def dataframe_height_for_rows(row_count):
     header_height = 38
     row_height = 35 
     content_height = header_height + (max(row_count, 1) * row_height) 
-    max_height = content_height
+    max_height = 650
     return min(content_height, max_height)
 
 
@@ -215,11 +221,28 @@ def sort_ticket_dataframe(df):
     return df_sorted.drop(columns=["Status Sort", "Created Sort"])
 
 
+def active_ticket_count(df):
+    if df.empty or "Status" not in df.columns:
+        return 0
+    normalized_status = df["Status"].fillna("").astype(str).str.strip().str.lower()
+    return int((~normalized_status.isin(INACTIVE_COUNT_STATUSES)).sum())
+
+
+def escape_jql_value(value):
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def build_jql(view_name, filter_email, created_start=None, created_end=None):
-    jira_user = filter_email.replace('"', '\\"')
+    jira_user = escape_jql_value(filter_email)
 
     if view_name == "Reported":
         owner_clause = f'reporter = "{jira_user}" AND (assignee != "{jira_user}" OR assignee IS EMPTY)'
+    elif view_name == "Unassigned Reporting":
+        owner_clause = (
+            f'assignee IS EMPTY AND {TEAM_QUEUE_JQL_FIELD} = '
+            f'"{escape_jql_value(REPORTING_QUEUE_NAME)}" '
+            'AND statusCategory != Done'
+        )
     else:
         owner_clause = f'assignee = "{jira_user}"'
 
@@ -334,20 +357,17 @@ def render_jira_tickets():
 
     exporter = JiraExporter(settings["jira_url"], settings["email"], settings["token"])
 
-    header_left, header_mid, header_right = st.columns([0.22, 0.28, 0.50])
-
-    with header_left:
-        st.markdown("## Jira")
+    header_mid, spacer, header_right = st.columns([0.34, 0.05, 0.61])
 
     with header_mid:
         search_text = st.text_input(
             "Search tickets",
-            placeholder="Search all table fields",
+            placeholder="Search",
             label_visibility="collapsed",
         )
 
     with header_right:
-        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([0.24, 0.38, 0.30, 0.10])
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([0.16, 0.46, 0.28, 0.10])
 
         with filter_col1:
             use_created_date_filter = st.checkbox("Created Date", value=False)
@@ -386,16 +406,40 @@ def render_jira_tickets():
 
     reported_query = build_jql("Reported", settings["filter_email"], created_start, created_end)
     assigned_query = build_jql("Assigned", settings["filter_email"], created_start, created_end)
+    unassigned_reporting_query = build_jql(
+        "Unassigned Reporting",
+        settings["filter_email"],
+        created_start,
+        created_end,
+    )
 
-    tab1, tab2 = st.tabs(["📤 Reported by Me", "📥 Assigned to Me"])
+    reported_df = exporter.fetch_and_process(reported_query)
+    assigned_df = exporter.fetch_and_process(assigned_query)
+    unassigned_reporting_df = exporter.fetch_and_process(unassigned_reporting_query)
+
+    tab1, tab2, tab3 = st.tabs(
+        [
+            f"Reported by Me ({active_ticket_count(reported_df)})",
+            f"Assigned to Me ({active_ticket_count(assigned_df)})",
+            f"Unassigned Queue ({active_ticket_count(unassigned_reporting_df)})",
+        ]
+    )
 
     with tab1:
-        if not render_dataframe(exporter.fetch_and_process(reported_query), "Reporter", search_text):
+        if not render_dataframe(reported_df, "Reporter", search_text):
             st.info("No reported issues found for the current filters.")
 
     with tab2:
-        if not render_dataframe(exporter.fetch_and_process(assigned_query), "Assignee", search_text):
+        if not render_dataframe(assigned_df, "Assignee", search_text):
             st.info("No assigned issues found for the current filters.")
+
+    with tab3:
+        if not render_dataframe(
+            unassigned_reporting_df,
+            "Assignee",
+            search_text,
+        ):
+            st.info("No unassigned Reporting tickets found for the current filters.")
 
 
 initialize_settings()

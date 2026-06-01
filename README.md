@@ -18,7 +18,7 @@ The app is designed for quick day-to-day ticket review with a dense table layout
 ## Features
 
 - `Jira` page with:
-  - `Reported by Me` and `Assigned to Me` tabs
+  - `Reported by Me`, `Assigned to Me`, and `Unassigned Queue` tabs with active ticket counts
   - default view of unresolved tickets plus tickets resolved in the last 14 days
   - optional created-date filter that overrides the default resolved-window behavior
   - free-text search across the displayed table fields
@@ -84,6 +84,7 @@ Then open the local Streamlit URL in your browser.
 - If the created-date filter is enabled, the selected date range is used directly.
 - If the created-date filter is disabled, the app shows unresolved tickets plus tickets resolved within the last 14 days.
 - The `Reported by Me` tab excludes tickets that are both reported by and assigned to the current user.
+- The `Unassigned Queue` tab shows unassigned tickets in the Reporting queue.
 
 ## Future Expansion
 

@@ -83,3 +83,66 @@ div[data-testid="stDataFrame"] [role="columnheader"] {
     padding-top: 0.1rem !important;
     padding-bottom: 0.1rem !important;
 }
+
+/* --- Sleek Corporate Tab Styles & Icons --- */
+div[data-testid="stTabs"], 
+div[data-testid="stTabs"] [role="tablist"] {
+    border-bottom: none !important;
+}
+
+div[data-testid="stTabs"] [role="tablist"] {
+    gap: 24px !important; /* Increased horizontal spacing between tabs */
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #6b7280 !important;
+    font-weight: 500 !important;
+    font-size: 0.8rem !important; /* Reduced font size further */
+    border-bottom: none !important;
+    background: transparent !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    color: #ff4b4b !important;
+    font-weight: 600 !important;
+    border-bottom: none !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"]::before {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background-repeat: no-repeat;
+    background-size: contain;
+    vertical-align: middle;
+    transition: background-image 0.2s ease;
+}
+
+/* 1. Reported by me (Paper plane) */
+div[data-testid="stTabs"] button[role="tab"]:nth-child(1)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E");
+}
+div[data-testid="stTabs"] button[role="tab"]:nth-child(1)[aria-selected="true"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E");
+}
+
+/* 2. Assigned to me (User Checkmark) */
+div[data-testid="stTabs"] button[role="tab"]:nth-child(2)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='m16 11 2 2 4-4'/%3E%3C/svg%3E");
+}
+div[data-testid="stTabs"] button[role="tab"]:nth-child(2)[aria-selected="true"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='m16 11 2 2 4-4'/%3E%3C/svg%3E");
+}
+
+/* 3. Unassigned Queue (Clock) */
+div[data-testid="stTabs"] button[role="tab"]:nth-child(3)::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
+}
+div[data-testid="stTabs"] button[role="tab"]:nth-child(3)[aria-selected="true"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpolyline points='12 6 12 12 16 14'/%3E%3C/svg%3E");
+}
+
