@@ -213,14 +213,14 @@ div[data-testid="stTabs"] button[role="tab"]:nth-child(1)[aria-selected="true"]:
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E");
 }
 
-/* 2. Assigned to me (Inward Arrow - Down Left Paper Plane) */
+/* 2. Assigned to me (Inward Arrow - Down Right Paper Plane) */
 div[data-testid="stTabs"] button[role="tab"]:nth-child(2)::before {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E");
-    transform: rotate(180deg) !important;
+    transform: rotate(90deg) !important;
 }
 div[data-testid="stTabs"] button[role="tab"]:nth-child(2)[aria-selected="true"]::before {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff4b4b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m22 2-7 20-4-9-9-4Z'/%3E%3Cpath d='M22 2 11 13'/%3E%3C/svg%3E");
-    transform: rotate(180deg) !important;
+    transform: rotate(90deg) !important;
 }
 
 /* 3. Unassigned Queue (Clock) */
