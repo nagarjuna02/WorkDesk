@@ -370,7 +370,7 @@ def render_jira_tickets():
         )
 
     with header_right:
-        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([0.16, 0.46, 0.28, 0.10])
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([0.21, 0.43, 0.26, 0.10])
 
         with filter_col1:
             use_created_date_filter = st.checkbox("Created Date", value=False)
