@@ -197,8 +197,8 @@ div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
 div[data-testid="stTabs"] button[role="tab"]::before {
     content: "";
     display: inline-block;
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     background-repeat: no-repeat;
     background-size: contain;
     vertical-align: middle;
