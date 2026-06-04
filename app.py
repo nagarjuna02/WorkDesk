@@ -81,7 +81,7 @@ class JiraExporter:
             return ", ".join([item for item in formatted_values if item])
         return str(value)
 
-    @st.cache_data(ttl=600)
+    @st.cache_data(ttl=600, show_spinner=False)
     def fetch_and_process(_self, jql_query):
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
         fields = ["summary", "status", "assignee", "reporter", "created", "updated", TEAM_QUEUE_FIELD_ID]
@@ -394,7 +394,6 @@ def render_jira_tickets():
         with filter_col4:
             if st.button("🔄", use_container_width=True):
                 st.cache_data.clear()
-                st.rerun()
 
     created_start = None
     created_end = None
@@ -416,16 +415,48 @@ def render_jira_tickets():
         created_end,
     )
 
-    reported_df = exporter.fetch_and_process(reported_query)
-    assigned_df = exporter.fetch_and_process(assigned_query)
-    unassigned_reporting_df = exporter.fetch_and_process(unassigned_reporting_query)
+    current_tab = st.session_state.get("jira_tabs", "Reported by Me")
+    last_tab = st.session_state.get("last_active_tab", "Reported by Me")
+    is_tab_switch = (current_tab != last_tab)
+    st.session_state["last_active_tab"] = current_tab
+
+    if is_tab_switch:
+        reported_df = exporter.fetch_and_process(reported_query)
+        assigned_df = exporter.fetch_and_process(assigned_query)
+        unassigned_reporting_df = exporter.fetch_and_process(unassigned_reporting_query)
+    else:
+        with st.spinner("Loading tickets..."):
+            reported_df = exporter.fetch_and_process(reported_query)
+            assigned_df = exporter.fetch_and_process(assigned_query)
+            unassigned_reporting_df = exporter.fetch_and_process(unassigned_reporting_query)
+
+    # Inject dynamic ticket counts using CSS so the st.tabs labels stay static in Python.
+    # This prevents Streamlit from destroying and resetting active tab state on refresh.
+    st.markdown(
+        f"""
+        <style>
+        div[data-testid="stTabs"] button[role="tab"]:nth-child(1)::after {{
+            content: " ({active_ticket_count(reported_df)})" !important;
+        }}
+        div[data-testid="stTabs"] button[role="tab"]:nth-child(2)::after {{
+            content: " ({active_ticket_count(assigned_df)})" !important;
+        }}
+        div[data-testid="stTabs"] button[role="tab"]:nth-child(3)::after {{
+            content: " ({active_ticket_count(unassigned_reporting_df)})" !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     tab1, tab2, tab3 = st.tabs(
         [
-            f"Reported by Me ({active_ticket_count(reported_df)})",
-            f"Assigned to Me ({active_ticket_count(assigned_df)})",
-            f"Unassigned Queue ({active_ticket_count(unassigned_reporting_df)})",
-        ]
+            "Reported by Me",
+            "Assigned to Me",
+            "Unassigned Queue",
+        ],
+        key="jira_tabs",
+        on_change="rerun",
     )
 
     with tab1:

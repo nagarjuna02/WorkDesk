@@ -180,7 +180,7 @@ div[data-testid="stTabs"] [role="tablist"] {
 div[data-testid="stTabs"] button[role="tab"] {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 4px !important; /* Reduced space between icon and text */
     color: #6b7280 !important;
     font-weight: 500 !important;
     font-size: 0.8rem !important; /* Reduced font size further */
@@ -322,4 +322,35 @@ div[data-testid="stExpander"] div[data-testid="stForm"] {
     box-shadow: none !important;
     padding: 16px 16px 0 16px !important;
 }
+
+/* Style Streamlit spinner container to float on the right of tab titles */
+div[data-testid="stSpinner"] {
+    width: 100% !important;
+    height: 0 !important;
+    overflow: visible !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    z-index: 1000 !important;
+}
+
+div[data-testid="stSpinner"] > div {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    width: max-content !important;
+    white-space: nowrap !important;
+    margin-top: 12px !important; /* Align vertically with the tab title line */
+    background: transparent !important;
+    font-size: 0.85rem !important;
+    color: #6b7280 !important;
+    font-weight: 500 !important;
+}
+
+/* Ensure spinner elements do not wrap or collapse */
+div[data-testid="stSpinner"] * {
+    white-space: nowrap !important;
+}
+
 
