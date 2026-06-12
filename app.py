@@ -177,9 +177,6 @@ def handle_entra_callback(settings):
 
 
 def render_sign_in(settings):
-    st.markdown("## Sign in")
-    st.markdown("Use your Microsoft work account to open Work Desk.")
-
     auth_state = secrets.token_urlsafe(32)
     st.session_state["entra_auth_state"] = auth_state
     register_auth_state(auth_state)
@@ -189,7 +186,35 @@ def render_sign_in(settings):
         state=auth_state,
         prompt="select_account",
     )
-    st.link_button("Sign in with Microsoft", auth_url, type="primary")
+    
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        card_html = f"""
+        <div class="login-card">
+            <div class="login-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ff4b4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="9" y1="3" x2="9" y2="21"/>
+                    <line x1="15" y1="3" x2="15" y2="21"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
+                </svg>
+            </div>
+            <h1 class="login-title">Work Desk</h1>
+            <p class="login-subtitle">Single Sign-On</p>
+            <div class="login-divider"></div>
+            <a href="{auth_url}" class="sso-button" target="_self">
+                <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 23 23">
+                    <rect x="0" y="0" width="11" height="11" fill="#f25022"/>
+                    <rect x="12" y="0" width="11" height="11" fill="#7fba00"/>
+                    <rect x="0" y="12" width="11" height="11" fill="#00a4ef"/>
+                    <rect x="12" y="12" width="11" height="11" fill="#ffb900"/>
+                </svg>
+                <span>Sign in with Microsoft</span>
+            </a>
+        </div>
+        """
+        st.markdown(card_html, unsafe_allow_html=True)
 
 
 def require_entra_user():
@@ -655,9 +680,25 @@ initialize_settings()
 
 with st.sidebar:
     signed_in_user = st.session_state.get("entra_user") or {}
-    st.caption(signed_in_user.get("display_name", "Signed in"))
-    st.caption(signed_in_email())
-    if st.button("Sign out", use_container_width=True):
+    display_name = signed_in_user.get("display_name", "Signed in")
+
+    # Render user profile using custom HTML to align with left panel items
+    st.markdown(
+        f"""
+        <div class="sidebar-profile">
+            <div class="profile-item name-item">
+                <span class="profile-icon name-icon"></span>
+                <span class="profile-text" title="{display_name}">{display_name}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown("---")
+    page = st.radio("Navigation", ["Jira", "Admin"], label_visibility="collapsed")
+
+    if st.button("Sign out"):
         for key in (
             "entra_user",
             "entra_auth_state",
@@ -669,9 +710,6 @@ with st.sidebar:
         st.cache_data.clear()
         clear_auth_query_params()
         st.rerun()
-
-    st.markdown("---")
-    page = st.radio("Navigation", ["Jira", "Admin"], label_visibility="collapsed")
 
 if page == "Admin":
     render_admin_center()
