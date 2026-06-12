@@ -1,5 +1,7 @@
 import os
+import secrets
 import time
+import msal
 import requests
 import pandas as pd
 import streamlit as st
@@ -25,6 +27,190 @@ load_css("style.css")
 TEAM_QUEUE_FIELD_ID = "customfield_11152"
 TEAM_QUEUE_JQL_FIELD = "cf[11152]"
 REPORTING_QUEUE_NAME = "Reporting"
+GRAPH_SCOPES = ["User.Read"]
+GRAPH_ME_ENDPOINT = "https://graph.microsoft.com/v1.0/me"
+AUTH_QUERY_PARAMS = (
+    "code",
+    "state",
+    "session_state",
+    "error",
+    "error_description",
+    "error_subcode",
+)
+AUTH_STATE_TTL_SECONDS = 600
+
+
+@st.cache_resource(show_spinner=False)
+def auth_state_registry():
+    return {}
+
+
+def get_query_param_value(param_name):
+    value = st.query_params.get(param_name, "")
+    if isinstance(value, list):
+        return value[0].strip() if value else ""
+    return str(value).strip()
+
+
+def current_entra_settings():
+    return {
+        "client_id": os.getenv("ENTRA_CLIENT_ID", "").strip(),
+        "tenant_id": os.getenv("ENTRA_TENANT_ID", "").strip(),
+        "client_secret": os.getenv("ENTRA_CLIENT_SECRET", "").strip(),
+        "redirect_uri": os.getenv("ENTRA_REDIRECT_URI", "http://localhost:8501").strip(),
+    }
+
+
+def entra_settings_ready(settings):
+    return all(
+        [
+            settings["client_id"],
+            settings["tenant_id"],
+            settings["client_secret"],
+            settings["redirect_uri"],
+        ]
+    )
+
+
+def build_msal_client(settings):
+    authority = f"https://login.microsoftonline.com/{settings['tenant_id']}"
+    return msal.ConfidentialClientApplication(
+        client_id=settings["client_id"],
+        authority=authority,
+        client_credential=settings["client_secret"],
+    )
+
+
+def clear_auth_query_params():
+    for param_name in AUTH_QUERY_PARAMS:
+        if param_name in st.query_params:
+            del st.query_params[param_name]
+
+
+def clear_legacy_user_email_param():
+    if "user-email" in st.query_params:
+        del st.query_params["user-email"]
+
+
+def register_auth_state(auth_state):
+    registry = auth_state_registry()
+    now = time.time()
+    expired_states = [
+        state for state, created_at in registry.items()
+        if now - created_at > AUTH_STATE_TTL_SECONDS
+    ]
+    for state in expired_states:
+        registry.pop(state, None)
+    registry[auth_state] = now
+
+
+def consume_auth_state(auth_state):
+    registry = auth_state_registry()
+    created_at = registry.pop(auth_state, None)
+    if not created_at:
+        return False
+    return time.time() - created_at <= AUTH_STATE_TTL_SECONDS
+
+
+def fetch_graph_user(access_token):
+    response = requests.get(
+        f"{GRAPH_ME_ENDPOINT}?$select=displayName,mail,userPrincipalName,id",
+        headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
+        timeout=(5, 20),
+    )
+    response.raise_for_status()
+    profile = response.json()
+    email = (profile.get("mail") or profile.get("userPrincipalName") or "").strip()
+    if not email:
+        raise ValueError("Microsoft Graph did not return a usable email address.")
+    return {
+        "display_name": profile.get("displayName") or email,
+        "email": email,
+        "graph_id": profile.get("id", ""),
+    }
+
+
+def handle_entra_callback(settings):
+    error = get_query_param_value("error")
+    code = get_query_param_value("code")
+
+    if not error and not code:
+        return
+
+    if error:
+        clear_auth_query_params()
+        st.error("Microsoft sign-in was not completed. Please try again.")
+        return
+
+    returned_state = get_query_param_value("state")
+    expected_state = st.session_state.get("entra_auth_state", "")
+    state_matches_session = expected_state and returned_state == expected_state
+    state_matches_registry = consume_auth_state(returned_state)
+    state_is_valid = state_matches_session or state_matches_registry
+    if not state_is_valid:
+        clear_auth_query_params()
+        st.session_state.pop("entra_auth_state", None)
+        st.error("Microsoft sign-in could not be verified. Please start sign-in again.")
+        return
+
+    try:
+        token_response = build_msal_client(settings).acquire_token_by_authorization_code(
+            code,
+            scopes=GRAPH_SCOPES,
+            redirect_uri=settings["redirect_uri"],
+        )
+        access_token = token_response.get("access_token")
+        if not access_token:
+            raise RuntimeError(token_response.get("error", "token_exchange_failed"))
+
+        user = fetch_graph_user(access_token)
+        st.session_state["entra_user"] = user
+        st.session_state["jira_filter_email"] = user["email"]
+        st.session_state.pop("entra_auth_state", None)
+        st.cache_data.clear()
+        clear_auth_query_params()
+        st.rerun()
+    except Exception:
+        clear_auth_query_params()
+        st.session_state.pop("entra_auth_state", None)
+        st.error("Microsoft sign-in succeeded, but the app could not load your Graph profile.")
+
+
+def render_sign_in(settings):
+    st.markdown("## Sign in")
+    st.markdown("Use your Microsoft work account to open Work Desk.")
+
+    auth_state = secrets.token_urlsafe(32)
+    st.session_state["entra_auth_state"] = auth_state
+    register_auth_state(auth_state)
+    auth_url = build_msal_client(settings).get_authorization_request_url(
+        scopes=GRAPH_SCOPES,
+        redirect_uri=settings["redirect_uri"],
+        state=auth_state,
+        prompt="select_account",
+    )
+    st.link_button("Sign in with Microsoft", auth_url, type="primary")
+
+
+def require_entra_user():
+    settings = current_entra_settings()
+    if not entra_settings_ready(settings):
+        st.warning("Microsoft sign-in is not configured. Add Entra settings to the .env file.")
+        st.stop()
+
+    handle_entra_callback(settings)
+
+    user = st.session_state.get("entra_user")
+    if user:
+        return user
+
+    render_sign_in(settings)
+    st.stop()
+
+
+def signed_in_email():
+    user = st.session_state.get("entra_user") or {}
+    return (user.get("email") or "").strip()
 
 
 class JiraExporter:
@@ -258,20 +444,15 @@ def build_jql(view_name, filter_email, created_start=None, created_end=None):
     return " AND ".join(filters) + " ORDER BY created DESC"
 
 
-def get_query_param_value(param_name):
-    value = st.query_params.get(param_name, "")
-    if isinstance(value, list):
-        return value[0].strip() if value else ""
-    return str(value).strip()
-
-
 def initialize_settings():
-    default_filter_email = get_query_param_value("user-email") or os.getenv("JIRA_EMAIL", "").strip()
-    st.session_state.setdefault("jira_filter_email", default_filter_email)
+    login_email = signed_in_email()
+    previous_filter_email = st.session_state.get("jira_filter_email", "")
 
-    query_filter_email = get_query_param_value("user-email")
-    if query_filter_email and st.session_state.get("jira_filter_email") != query_filter_email:
-        st.session_state["jira_filter_email"] = query_filter_email
+    st.session_state["jira_filter_email"] = login_email
+    if previous_filter_email and previous_filter_email != login_email:
+        st.cache_data.clear()
+
+    clear_legacy_user_email_param()
 
 
 def current_jira_settings():
@@ -279,33 +460,25 @@ def current_jira_settings():
         "jira_url": os.getenv("JIRA_URL", "").strip(),
         "email": os.getenv("JIRA_EMAIL", "").strip(),
         "token": os.getenv("JIRA_API_TOKEN", "").strip(),
-        "filter_email": st.session_state.get("jira_filter_email", "").strip(),
+        "filter_email": signed_in_email(),
     }
 
 
 def render_admin_center():
     st.markdown("## Admin Center")
-    st.markdown("Configure and manage your browser session settings.")
+    st.markdown("View your browser session settings.")
     st.markdown("---")
 
-    with st.expander("Session Configuration", expanded=False):
-        with st.form("admin_center_form"):
-            jira_filter_email = st.text_input(
-                "Jira User Email",
-                value=st.session_state.get("jira_filter_email", ""),
-                help="This email is used to filter issues. API authentication itself still uses the .env credentials.",
-            )
-            apply_settings = st.form_submit_button("Apply Email Filter")
+    signed_in_user = st.session_state.get("entra_user") or {}
+    st.info(f"Signed in as {signed_in_user.get('display_name', signed_in_email())}")
 
-    if apply_settings:
-        st.session_state["jira_filter_email"] = jira_filter_email.strip()
-        if jira_filter_email.strip():
-            st.query_params["user-email"] = jira_filter_email.strip()
-        elif "user-email" in st.query_params:
-            del st.query_params["user-email"]
-        st.cache_data.clear()
-        st.success("Jira email filter updated for this session.")
-        st.rerun()
+    with st.expander("Session Configuration", expanded=False):
+        st.text_input(
+            "Jira User Email",
+            value=signed_in_email(),
+            disabled=True,
+            help="This email comes from your Microsoft login and is used to filter Jira issues.",
+        )
 
 def render_dataframe(df, hidden_column, search_text=""):
     if df.empty:
@@ -476,9 +649,28 @@ def render_jira_tickets():
             st.info("No unassigned Reporting tickets found for the current filters.")
 
 
+clear_legacy_user_email_param()
+require_entra_user()
 initialize_settings()
 
 with st.sidebar:
+    signed_in_user = st.session_state.get("entra_user") or {}
+    st.caption(signed_in_user.get("display_name", "Signed in"))
+    st.caption(signed_in_email())
+    if st.button("Sign out", use_container_width=True):
+        for key in (
+            "entra_user",
+            "entra_auth_state",
+            "jira_filter_email",
+            "jira_tabs",
+            "last_active_tab",
+        ):
+            st.session_state.pop(key, None)
+        st.cache_data.clear()
+        clear_auth_query_params()
+        st.rerun()
+
+    st.markdown("---")
     page = st.radio("Navigation", ["Jira", "Admin"], label_visibility="collapsed")
 
 if page == "Admin":
